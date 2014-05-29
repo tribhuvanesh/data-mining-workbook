@@ -6,7 +6,7 @@ import numpy.random
 
 ALPHA = 0.2
 
-articles = None
+art_dict  = None
 num_articles = None
 M = {}
 M_inv = {}
@@ -17,10 +17,13 @@ prev_pred = (0, 0, []) # (timestamp < t >, predicted_article_id < y_t >, user_fe
 # Evaluator will call this function and pass the article features.
 # Check evaluator.py description for details.
 def set_articles(art):
-    articles = art
+    global art_dict
+    global num_articles
+
+    art_dict = art
     num_articles = len(art)
 
-    for art_id in articles:
+    for art_id in art_dict:
         M[art_id] = np.identity(6)
         M_inv[art_id] = np.identity(6)
         b[art_id] = np.zeros(6)
@@ -30,6 +33,8 @@ def set_articles(art):
 # This function will be called by the evaluator.
 # Check task description for details.
 def update(reward):
+    if reward == -1:
+        return
 
     y_t = prev_pred[1]
     z_t = prev_pred[2]

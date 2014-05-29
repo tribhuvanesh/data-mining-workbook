@@ -11,6 +11,7 @@ num_articles = None
 M = {}
 M_inv = {}
 b = {}
+w = {}
 prev_pred = (0, 0, []) # (timestamp < t >, predicted_article_id < y_t >, user_features < z_t >)
 
 # Evaluator will call this function and pass the article features.
@@ -23,6 +24,7 @@ def set_articles(art):
         M[art_id] = np.identity(6)
         M_inv[art_id] = np.identity(6)
         b[art_id] = np.zeros(6)
+        w[art_id] = np.zeros(6)
 
 
 # This function will be called by the evaluator.
@@ -36,6 +38,7 @@ def update(reward):
     b[y_t] = b[y_t] + reward * z_t
 
     M_inv[y_t] = inv(M[y_t])
+    w[y_t] = np.inner(M_inv[y_t], b[y_t])
 
 
 # This function will be called by the evaluator.
@@ -47,8 +50,7 @@ def reccomend(timestamp, user_features, articles):
     z = np.array(user_features)
 
     for x in articles:
-        w = np.inner(M_inv[x], b[x])
-        ucb[x] = np.inner(w, z) + ALPHA * np.sqrt( np.inner(z, np.inner((M_inv[x]), z)) )
+        ucb[x] = np.inner(w[x], z) + ALPHA * np.sqrt( np.inner(z, np.inner((M_inv[x]), z)) )
 
     to_predict = max(articles, key=lambda k:ucb[k])
     prev_pred = (timestamp, to_predict, z)

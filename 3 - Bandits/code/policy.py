@@ -34,7 +34,7 @@ def update(reward):
     y_t = prev_pred[1]
     z_t = prev_pred[2]
 
-    M[y_t] = M[y_t] + np.inner(z_t, z_t)
+    M[y_t] = M[y_t] + np.outer(z_t, z_t)
     b[y_t] = b[y_t] + reward * z_t
 
     M_inv[y_t] = inv(M[y_t])

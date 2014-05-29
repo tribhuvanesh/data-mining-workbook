@@ -4,7 +4,7 @@ import numpy as np
 from numpy.linalg import inv
 import numpy.random
 
-ALPHA = 0.3
+ALPHA = 0.2
 
 articles = None
 num_articles = None
@@ -32,7 +32,7 @@ def update(reward):
     y_t = prev_pred[1]
     z_t = prev_pred[2]
 
-    M[y_t] = M[y_t] + np.inner(z_t, z_t)
+    M[y_t] = M[y_t] + np.outer(z_t, z_t)
     b[y_t] = b[y_t] + reward * z_t
 
     M_inv[y_t] = inv(M[y_t])
@@ -44,12 +44,11 @@ def reccomend(timestamp, user_features, articles):
     global prev_pred
 
     ucb = {k:0 for k in articles}
-    w = {l:0 for l in user_features}
     z = np.array(user_features)
 
     for x in articles:
-        w[x] = np.inner(M_inv[x], b[x])
-        ucb[x] = np.inner(w[x], z) + ALPHA * np.sqrt( np.inner(z, np.inner((M_inv[x]), z)) )
+        w = np.inner(M_inv[x], b[x])
+        ucb[x] = np.inner(w, z) + ALPHA * np.sqrt( np.inner(z, np.inner((M_inv[x]), z)) )
 
     to_predict = max(articles, key=lambda k:ucb[k])
     prev_pred = (timestamp, to_predict, z)

@@ -6,7 +6,7 @@ import numpy.random
 
 ALPHA = 0.3
 
-articles = None
+art_dict = None
 num_articles = None
 M = {}
 M_inv = {}
@@ -16,13 +16,15 @@ prev_pred = (0, 0, []) # (timestamp < t >, predicted_article_id < y_t >, user_fe
 # Evaluator will call this function and pass the article features.
 # Check evaluator.py description for details.
 def set_articles(art):
-    articles = art
+    global art_dict
+
+    art_dict = art
     num_articles = len(art)
 
-    for art_id in articles:
-        M[art_id] = np.identity(6)
-        M_inv[art_id] = np.identity(6)
-        b[art_id] = np.zeros(6)
+    for art_id in art:
+        M[art_id] = np.identity(12)
+        M_inv[art_id] = np.identity(12)
+        b[art_id] = np.zeros(12)
 
 
 # This function will be called by the evaluator.
@@ -44,13 +46,14 @@ def reccomend(timestamp, user_features, articles):
     global prev_pred
 
     ucb = {k:0 for k in articles}
-    w = {l:0 for l in user_features}
-    z = np.array(user_features)
+    z = {}
+    for a in articles:
+        z[a] = np.concatenate((user_features, art_dict[a]))
 
     for x in articles:
-        w[x] = np.inner(M_inv[x], b[x])
-        ucb[x] = np.inner(w[x], z) + ALPHA * np.sqrt( np.inner(z, np.inner((M_inv[x]), z)) )
+        w = np.inner(M_inv[x], b[x])
+        ucb[x] = np.inner(w, z[x]) + ALPHA * np.sqrt( np.inner(z[x], np.inner((M_inv[x]), z[x])) )
 
     to_predict = max(articles, key=lambda k:ucb[k])
-    prev_pred = (timestamp, to_predict, z)
+    prev_pred = (timestamp, to_predict, z[to_predict])
     return to_predict

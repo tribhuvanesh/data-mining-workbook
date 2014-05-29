@@ -4,11 +4,11 @@ import numpy as np
 import sys
 
 # Constants to construct minhash signature
-NUM_SIG_HASHES = 250
-MOD_N = 1000
+NUM_SIG_HASHES = 256
+MOD_N = 800
 # Constants to partition the signature matrix
 # Value of r
-NUM_ROWS_PER_BAND = 25
+NUM_ROWS_PER_BAND = 27
 # Value of b = NUM_SIG_HASHES/r
 
 
@@ -30,7 +30,10 @@ def partition(video_id, shingles, hash_coefficients):
             band_id = i/NUM_ROWS_PER_BAND
         # print sig_mat[1:10]
         # print ','.join([str(int(x)) for x in sig_mat[i:i + NUM_ROWS_PER_BAND]])
-        print '%d:%s\t%s' % (band_id, ','.join([str(int(x)) for x in sig_mat[i:i + NUM_ROWS_PER_BAND]]), video_id)
+        print '%d:%s\t%s:%s' % (band_id, ','.join([str(int(x)) for x in sig_mat[i:i + NUM_ROWS_PER_BAND]]), video_id,
+                                ','.join[[str(int(x)) for x in
+                                          sig_mat[(i + NUM_ROWS_PER_BAND) % NUM_SIG_HASHES:(
+                                                                                           i + 2 * NUM_ROWS_PER_BAND) % NUM_SIG_HASHES]]])
 
 
 if __name__ == "__main__":

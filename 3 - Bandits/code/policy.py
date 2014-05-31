@@ -4,15 +4,27 @@ import numpy as np
 from numpy.linalg import inv
 import numpy.random
 
-ALPHA = 0.2
+ALPHA = 0.40
+k = 36
+d = 6
 
 art_dict  = None
 num_articles = None
-M = {}
-M_inv = {}
+A = {}
+A_inv = {}
+B = {}
 b = {}
-w = {}
-prev_pred = (0, 0, []) # (timestamp < t >, predicted_article_id < y_t >, user_features < z_t >)
+theta = {}
+prev_pred = (0, 0, [], []) # (timestamp < t >, predicted_article_id < y_t >, user_features < x_t >, user_art_features < z_t >)
+
+A_0 = np.identity(k)
+A_0_inv = np.identity(k)
+b_0 = np.zeros(k)
+beta = np.dot(A_0_inv, b_0)
+
+# print np.shape(A_0_inv)
+# print np.shape(b_0)
+# print np.shape(beta)
 
 # Evaluator will call this function and pass the article features.
 # Check evaluator.py description for details.
@@ -20,30 +32,54 @@ def set_articles(art):
     global art_dict
     global num_articles
 
-    art_dict = art
+    art_dict = {}
+    for key in art:
+        art_dict[key] = np.array(art[key])
     num_articles = len(art)
 
     for art_id in art_dict:
-        M[art_id] = np.identity(6)
-        M_inv[art_id] = np.identity(6)
-        b[art_id] = np.zeros(6)
-        w[art_id] = np.zeros(6)
+        A[art_id] = np.identity(d)
+        B[art_id] = np.zeros((d, k))
+        b[art_id] = np.zeros(d)
+        A_inv[art_id] = np.identity(d)
+        theta[art_id] = np.zeros(d)
 
 
 # This function will be called by the evaluator.
 # Check task description for details.
 def update(reward):
+    global beta, A_0, b_0
     if reward == -1:
         return
 
-    y_t = prev_pred[1]
-    z_t = prev_pred[2]
+    a = prev_pred[1]
+    x = prev_pred[2]
+    z = prev_pred[3]
 
-    M[y_t] = M[y_t] + np.outer(z_t, z_t)
-    b[y_t] = b[y_t] + reward * z_t
+    tmp_prod1 = np.dot(B[a].T, np.dot(A_inv[a], B[a]))
+    tmp_prod2 = np.dot(B[a].T, np.dot(A_inv[a], b[a]))
 
-    M_inv[y_t] = inv(M[y_t])
-    w[y_t] = np.inner(M_inv[y_t], b[y_t])
+    A_0 = A_0 + tmp_prod1
+    b_0 = b_0 + tmp_prod2
+    A[a] = A[a] + np.outer(x, x)
+    B[a] = B[a] + np.outer(x, z)
+    b[a] = b[a] + reward*x
+    A_0 = A_0 + np.outer(z, z) - tmp_prod1
+    b_0 = b_0 + reward*z - tmp_prod2
+
+    # Update cached variables
+    A_0_inv = inv(A_0)
+    A_inv[a] = inv(A[a])
+
+    theta[a] = np.dot( A_inv[a],
+                         (b[a] - np.dot(B[a], beta))
+                       )
+    beta = np.dot(A_0_inv, b_0)
+    # print '----'
+    # print np.shape(A_0_inv)
+    # print np.shape(b_0)
+    # print np.shape(beta)
+    # print np.shape(tmp_prod2)
 
 
 # This function will be called by the evaluator.
@@ -51,12 +87,30 @@ def update(reward):
 def reccomend(timestamp, user_features, articles):
     global prev_pred
 
-    ucb = {k:0 for k in articles}
-    z = np.array(user_features)
+    x_ta_dct = {}
+    p_ta_dct = {}
+    z_ta_dct = {}
 
-    for x in articles:
-        ucb[x] = np.inner(w[x], z) + ALPHA * np.sqrt( np.inner(z, np.inner((M_inv[x]), z)) )
+    for a in articles:
+        # x_ta : user features
+        x_ta = np.array(art_dict[a])
+        # z_ta : outer product of the user and article features
+        z_ta = np.outer(np.array(user_features), x_ta).flatten()
 
-    to_predict = max(articles, key=lambda k:ucb[k])
-    prev_pred = (timestamp, to_predict, z)
+        tmp_prod1 = np.dot(A_0_inv, np.dot(B[a].T, np.dot(A_inv[a], x_ta))) # Should be k x 1
+        tmp_prod2 = np.dot(x_ta.T, A_inv[a]) # Should be 1 x d
+        s_ta = np.dot(z_ta.T, np.dot(A_0_inv, z_ta)) \
+               - 2 * np.dot(z_ta.T, tmp_prod1) \
+               + np.dot(tmp_prod2, x_ta) \
+               + np.dot(tmp_prod2, np.dot(B[a], tmp_prod1))
+        p_ta = np.inner(z_ta, beta) \
+               + np.dot(x_ta.T, theta[a]) \
+               + ALPHA * np.sqrt(s_ta)
+
+        x_ta_dct[a] = x_ta
+        p_ta_dct[a] = p_ta
+        z_ta_dct[a] = z_ta
+
+    to_predict = max(articles, key=lambda k:p_ta_dct[k])
+    prev_pred = (timestamp, to_predict, x_ta_dct[to_predict], z_ta_dct[to_predict])
     return to_predict

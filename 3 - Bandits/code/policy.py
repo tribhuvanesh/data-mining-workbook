@@ -22,6 +22,9 @@ A_0_inv = np.identity(k)
 b_0 = np.zeros(k)
 beta = np.dot(A_0_inv, b_0)
 
+tmpk1 = np.zeros(k)
+tmp1d = np.zeros(d)
+
 # print np.shape(A_0_inv)
 # print np.shape(b_0)
 # print np.shape(beta)
@@ -48,7 +51,7 @@ def set_articles(art):
 # This function will be called by the evaluator.
 # Check task description for details.
 def update(reward):
-    global beta, A_0, b_0
+    global beta, A_0, b_0, A_0_inv
     if reward == -1:
         return
 
@@ -85,7 +88,7 @@ def update(reward):
 # This function will be called by the evaluator.
 # Check task description for details.
 def reccomend(timestamp, user_features, articles):
-    global prev_pred
+    global prev_pred, tmpk1, tmp1d
 
     x_ta_dct = {}
     p_ta_dct = {}
@@ -97,8 +100,11 @@ def reccomend(timestamp, user_features, articles):
         # z_ta : outer product of the user and article features
         z_ta = np.outer(np.array(user_features), x_ta).flatten()
 
-        tmp_prod1 = np.dot(A_0_inv, np.dot(B[a].T, np.dot(A_inv[a], x_ta))) # Should be k x 1
-        tmp_prod2 = np.dot(x_ta.T, A_inv[a]) # Should be 1 x d
+        tmp_prod1 = np.dot(A_0_inv, np.dot(B[a].T, np.dot(A_inv[a], x_ta)), out=tmpk1) # Should be k x 1
+        # print '---'
+        # print np.shape(tmp_prod1), np.shape(tmpk1)
+        tmp_prod2 = np.dot(x_ta.T, A_inv[a], out=tmp1d) # Should be 1 x d
+        # print np.shape(tmp_prod2), np.shape(tmp1d)
         s_ta = np.dot(z_ta.T, np.dot(A_0_inv, z_ta)) \
                - 2 * np.dot(z_ta.T, tmp_prod1) \
                + np.dot(tmp_prod2, x_ta) \
